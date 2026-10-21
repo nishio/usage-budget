@@ -40,6 +40,7 @@ bash ~/.claude/skills/usage-budget/budget.sh --json   # スクリプト向け JS
 === usage-budget: 使用量判定 (時間連動モデル) ===
   5時間枠: 使用25.0%  残75.0%  リセット 4.1時間後
   週次枠 : 使用21%  残79%  severity=normal  リセット 159.1時間後
+  PACE   : 週の経過5.5% に対し使用21% → 15.5pt 先行
 
   使える枠: 5h=56% (残×0.75) / 週次=4% (均等ペース: 残り週割合を温存)
 
@@ -47,7 +48,10 @@ VERDICT=GO
 SPEND_5H=56.2
 SPEND_WEEK=4.2
 BINDING=週次
+PACE_GAP=+15.5
 ```
+
+`PACE` は、週次枠を均等に使っていれば今までに使っているはずの % です。`PACE_GAP` は「実際の使用 − PACE」です。正なら先行、負なら遅れ（使い切れていない分）を表します。「今週は PACE からだいぶ遅れているな → よしやるか」の判断材料に使います。単位コストを渡すと、遅れ分が週次何単位ぶんかも表示します。JSON では `weekly.pace_pct` / `weekly.pace_gap` / `behind_units` です。
 
 ### 作業単位で「何回回せるか」を出す
 

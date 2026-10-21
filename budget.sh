@@ -68,6 +68,10 @@ fh_reset = fh.get("resets_at")
 wk_reset = wa.get("resets_at") or sd.get("resets_at")
 fh_h, wk_h = hrs(fh_reset), hrs(wk_reset)
 
+# PACE: 均等ペースなら今までに使っているはずの週次 %。gap = 実使用 − PACE (正=先行 / 負=遅れ)
+pace_pct = None if wk_h is None else max(0.0, min(100.0, (1.0 - wk_h / WEEKLY_WIN) * 100.0))
+pace_gap = None if (pace_pct is None or wk_pct is None) else wk_pct - pace_pct
+
 s_head = (100 - fh_pct) if fh_pct is not None else 0
 w_head = (100 - wk_pct) if wk_pct is not None else 0
 
@@ -117,6 +121,10 @@ out = {
                "severity": wk_sev, "resets_at": wk_reset, "hours_to_reset": None if wk_h is None else round(wk_h, 2)},
     "units": units,
 }
+out["weekly"]["pace_pct"] = None if pace_pct is None else round(pace_pct, 1)
+out["weekly"]["pace_gap"] = None if pace_gap is None else round(pace_gap, 1)
+behind_units = int(-pace_gap / UW) if (UW > 0 and pace_gap is not None and pace_gap < 0) else None
+out["behind_units"] = behind_units
 
 if os.environ.get("MODE") == "--json":
     print(json.dumps(out, ensure_ascii=False))
@@ -129,6 +137,9 @@ def fmt_h(h):
 print("=== usage-budget: 使用量判定 (時間連動モデル) ===")
 print(f"  5時間枠: 使用{fh_pct}%  残{s_head}%  リセット {fmt_h(fh_h)}")
 print(f"  週次枠 : 使用{wk_pct}%  残{w_head}%  severity={wk_sev}  リセット {fmt_h(wk_h)}")
+if pace_gap is not None:
+    state = f"{pace_gap:.1f}pt 先行" if pace_gap >= 0 else f"{-pace_gap:.1f}pt 遅れ (使い切れていない分)"
+    print(f"  PACE   : 週の経過{pace_pct:.1f}% に対し使用{wk_pct}% → {state}")
 if hard:
     print(f"  ※週次 severity={wk_sev} = 実際の頭打ち")
 print()
@@ -137,6 +148,8 @@ if wk_h is not None and wk_h < 24 and w_head > 0 and not hard:
     print(f"  注: 週次は {fmt_h(wk_h)} にリセット。消える枠は温存価値が低い (使わなければ失われる)。")
 if units is not None:
     print(f"  作業単位: 5h {U5}pt/単位・週次 {UW}pt/単位 → 回せる {units} 単位 (律速={binding})")
+    if behind_units is not None:
+        print(f"  PACE の遅れ分だけで週次 {behind_units} 単位ぶん")
 print()
 print(f"VERDICT={verdict}")
 print(f"SPEND_5H={s_spend:.1f}")
@@ -144,4 +157,6 @@ print(f"SPEND_WEEK={w_spend:.1f}")
 if units is not None:
     print(f"UNITS={units}")
 print(f"BINDING={binding}")
+if pace_gap is not None:
+    print(f"PACE_GAP={pace_gap:+.1f}")
 PY
