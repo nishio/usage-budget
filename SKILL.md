@@ -25,7 +25,7 @@ bash ~/.claude/skills/usage-budget/budget.sh          # 人間向け
 bash ~/.claude/skills/usage-budget/budget.sh --json   # スクリプト向け
 ```
 
-出力の `VERDICT=GO/CAUTION/BLOCK`、`SPEND_5H` / `SPEND_WEEK` (使ってよい %)、`BINDING` (律速の枠)、`PACE_GAP` (週次の実使用 − 均等ペース。負=遅れ＝使い切れていない分) を読み、数値とリセット時刻を添えて報告する。
+出力の `VERDICT=GO/CAUTION/BLOCK`、`SPEND_5H` / `SPEND_WEEK` (使ってよい %)、`BINDING` (律速の枠)、`PACE_GAP` (週次の実使用 − 均等ペース。負=遅れ＝使い切れていない分)、`SLACK_HOURS` / `UNREACHABLE_WEEK` (全力ライン: `W_PER_5H` か単位コストを渡したときだけ。あと何時間使わずにいても週次を使い切れるか / 全力でも余る %) を読み、数値とリセット時刻を添えて報告する。
 
 ### 作業単位で上限を出す (プロジェクトごとに較正)
 

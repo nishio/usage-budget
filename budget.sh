@@ -47,6 +47,8 @@ U5          = float(env("UNIT_COST_5H", "0"))       # 1単位あたり 5h pt (0=
 UW          = float(env("UNIT_COST_WEEK", "0"))     # 1単位あたり 週次 pt
 MAX_UNITS   = int(env("MAX_UNITS", "0"))            # 単位数の上限 (0=上限なし)
 MIN_UNITS   = int(env("MIN_UNITS", "1"))            # GO に必要な最小単位数
+# 5h 枠 1 回を 100% 使ったときの週次消費 %。未指定なら単位コストの比から出す (どちらも無ければ全力ラインは出さない)
+W_PER_5H    = float(env("W_PER_5H", "0")) or (UW / U5 * 100 if U5 > 0 and UW > 0 else 0)
 
 now = datetime.datetime.now(datetime.timezone.utc)
 def hrs(iso):
@@ -83,6 +85,17 @@ def spendable_paced(head, hours_left, window, aggr):
         return 0.0
     frac_left = 0.0 if hours_left is None else max(0.0, min(1.0, hours_left / window))
     return max(0.0, min(head - RESERVE_MIN, head * (1.0 - frac_left) * aggr))
+
+# 全力ライン: 5h 枠を毎回 100% 使い続けたとき、週次リセットまでに消費できる週次 % の上限。
+#   = 今の 5h 枠の残り × r + (今の枠のリセット後〜週次リセット) の 5h 枠数 × 100 × r
+# 週次の残量がこれを超えたら、全力でも使い切れない (超過分は確実に失われる)。
+# slack = 全力で使い切るのに要る時間を引いた、あと何時間は使わずにいられるか。
+max_burn = slack_h = lost = None
+if W_PER_5H > 0 and wk_h is not None and fh_h is not None and wk_pct is not None:
+    later_windows = max(0.0, wk_h - fh_h) / 5.0
+    max_burn = s_head * W_PER_5H / 100 + later_windows * W_PER_5H
+    lost = max(0.0, w_head - max_burn)
+    slack_h = wk_h - (w_head / W_PER_5H) * 5.0
 
 s_spend = spendable_flat(s_head, S_SAFETY)
 w_spend = spendable_paced(w_head, wk_h, WEEKLY_WIN, PACE_AGGR)
@@ -125,6 +138,9 @@ out["weekly"]["pace_pct"] = None if pace_pct is None else round(pace_pct, 1)
 out["weekly"]["pace_gap"] = None if pace_gap is None else round(pace_gap, 1)
 behind_units = int(-pace_gap / UW) if (UW > 0 and pace_gap is not None and pace_gap < 0) else None
 out["behind_units"] = behind_units
+out["full_burn"] = None if max_burn is None else {
+    "w_per_5h": round(W_PER_5H, 2), "max_weekly_pct": round(max_burn, 1),
+    "unreachable_pct": round(lost, 1), "slack_hours": round(slack_h, 1)}
 
 if os.environ.get("MODE") == "--json":
     print(json.dumps(out, ensure_ascii=False))
@@ -142,6 +158,12 @@ if pace_gap is not None:
     print(f"  PACE   : 週の経過{pace_pct:.1f}% に対し使用{wk_pct}% → {state}")
 if hard:
     print(f"  ※週次 severity={wk_sev} = 実際の頭打ち")
+if max_burn is not None:
+    if lost > 0:
+        print(f"  全力ライン: 5h枠を毎回100%使っても週次は最大{max_burn:.0f}%しか減らない → {lost:.0f}% は確実に余る")
+    else:
+        print(f"  全力ライン: 残{w_head}%を使い切るのに全力で{w_head / W_PER_5H * 5:.0f}時間 → あと{slack_h:.0f}時間は使わずにいても間に合う"
+              f" (5h枠1回=週次{W_PER_5H:.1f}%)")
 print()
 print(f"  使える枠: 5h={s_spend:.0f}% (残×{S_SAFETY:.2f}) / 週次={w_spend:.0f}% (均等ペース: 残り週割合を温存)")
 if wk_h is not None and wk_h < 24 and w_head > 0 and not hard:
@@ -159,4 +181,7 @@ if units is not None:
 print(f"BINDING={binding}")
 if pace_gap is not None:
     print(f"PACE_GAP={pace_gap:+.1f}")
+if max_burn is not None:
+    print(f"SLACK_HOURS={slack_h:.1f}")
+    print(f"UNREACHABLE_WEEK={lost:.1f}")
 PY
