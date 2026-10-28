@@ -25,7 +25,7 @@ gh repo clone nishio/usage-budget ~/.claude/skills/usage-budget
 ### 前提
 
 - Claude Code に **OAuth でログイン**していること (`~/.claude/.credentials.json` を読む)。API キー利用の環境では動かない。
-- `bash` / `curl` / `python3`
+- `bash` / `curl` / `python3` (または `python`)。起動できる方を自動で選ぶ。Windows では `python3` が Microsoft Store のスタブのことがあるため。`PYTHON=...` で明示もできる
 
 ## 使い方
 

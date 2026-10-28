@@ -19,13 +19,26 @@ set -euo pipefail
 
 MODE=${1:-}
 CRED=${CRED:-$HOME/.claude/.credentials.json}
-TOKEN=$(python3 -c "import json,sys;print(json.load(open(sys.argv[1]))['claudeAiOauth']['accessToken'])" "$CRED")
+
+# Windows の python3 は Microsoft Store のスタブのことがある (PATH にあるが実行すると失敗する)。
+# 実際に起動できるものを選ぶ。PYTHON で明示もできる。
+if [ -z "${PYTHON:-}" ]; then
+  for c in python3 python; do
+    if "$c" -c 'import sys' >/dev/null 2>&1; then PYTHON=$c; break; fi
+  done
+fi
+if [ -z "${PYTHON:-}" ]; then
+  echo "ERROR: 起動できる python3 / python が見つからない。PYTHON=... で指定できる。" >&2
+  exit 2
+fi
+
+TOKEN=$("$PYTHON" -c "import json,sys;print(json.load(open(sys.argv[1]))['claudeAiOauth']['accessToken'])" "$CRED")
 
 RAW=$(curl -s -m 20 https://api.anthropic.com/api/oauth/usage \
   -H "Authorization: Bearer $TOKEN" \
   -H "anthropic-beta: oauth-2025-04-20")
 
-RAW="$RAW" MODE="$MODE" python3 <<'PY'
+RAW="$RAW" MODE="$MODE" "$PYTHON" <<'PY'
 import json, os, sys, datetime
 raw = os.environ.get("RAW", "").strip()
 if not raw:
